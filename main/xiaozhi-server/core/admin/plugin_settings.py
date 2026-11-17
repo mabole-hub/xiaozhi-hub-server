@@ -48,6 +48,14 @@ def _secret_of(saved: dict, key: str, legacy: bool) -> str:
 
 
 def configured(merged: dict, settings_id: str) -> bool:
+    if settings_id == "web_search":
+        # 备用 Key 不是必填：选定的 DeepSeek 大模型已有 Key 时也算配好。判断本身不回写密钥。
+        try:
+            from plugins_func.functions.web_search import settings_of
+
+            return bool(settings_of(merged).get("api_key"))
+        except Exception:
+            return False
     saved = _saved(merged, settings_id)
     legacy = _legacy(saved, settings_id)
     return all(_secret_of(saved, f["key"], legacy) if f["type"] == "secret" else _filled(saved.get(f["key"]))
@@ -151,16 +159,21 @@ def test_values(settings_id: str, payload: dict, merged: dict) -> dict:
 # ---------- 测试函数 ----------
 # settings_id -> async (values) -> dict；values 是 test_values 整理好的完整设置，失败时抛 ValueError
 
-async def _test_web_search(values: dict) -> dict:
+async def _test_web_search(values: dict, merged: dict = None) -> dict:
+    """和正式调用同一条解析：页面上的备用 Key 留空时，用选定的 DeepSeek 大模型 Key。"""
     from plugins_func.functions import web_search
 
-    settings = web_search.settings_of({"plugins": {"web_search": values}})
+    merged = merged or {}
+    config = {"plugins": {"web_search": values}, "LLM": merged.get("LLM") or {},
+              "selected_module": merged.get("selected_module") or {}}
+    settings = web_search.settings_of(config)
     try:
         result = await web_search.search(settings, "今天的重要新闻")
     except web_search.SearchError as e:
         raise ValueError(str(e))
     if not result.results:
-        raise ValueError("接口执行了搜索，但没有返回结果")
+        return {"seconds": result.seconds, "count": 0, "first": "",
+                "message": "接口有响应，这次没有网页结果。"}
     return {"seconds": result.seconds, "count": len(result.results), "first": result.results[0]["title"]}
 
 
@@ -197,7 +210,10 @@ async def run_test(settings_id: str, payload: dict, merged: dict) -> dict:
         raise KeyError(settings_id)
     values = test_values(settings_id, payload, merged)
     try:
-        result = await TESTS[settings_id](values)
+        if settings_id == "web_search":
+            result = await TESTS[settings_id](values, merged)
+        else:
+            result = await TESTS[settings_id](values)
     except ValueError as e:
         raise ValueError(_redact(str(e), values, settings_id))
     return {k: _redact(v, values, settings_id) if isinstance(v, str) else v for k, v in result.items()}
