@@ -126,7 +126,7 @@ PLUGINS = [
     {"name": "get_news_from_newsnow", "label": "热点新闻", "desc": "澎湃新闻、百度热搜、财联社等热榜"},
     {"name": "get_news_from_chinanews", "label": "中新网新闻", "desc": "中国新闻网的社会、国际、财经新闻"},
     {"name": "play_music", "label": "放音乐", "desc": "播放电脑上 music 目录里的歌曲"},
-    {"name": "web_search", "label": "联网搜索", "desc": "用 Anthropic 协议接口自带的搜索查实时信息，点「设置」填接口和 Key",
+    {"name": "web_search", "label": "联网搜索", "desc": "用 DeepSeek 官方搜索接口查公共网页。优先用选定的 DeepSeek 大模型 Key，点「设置」可填备用 Key",
      "config": "web_search", "settings": "web_search"},
     {"name": "change_role", "label": "切换角色", "desc": "换人设和说话风格"},
     {"name": "hass_get_state", "label": "查智能家居状态", "desc": "需要在配置文件的 plugins.home_assistant 里填写地址和令牌",
@@ -158,21 +158,20 @@ PLUGIN_SETTINGS = {
         ],
     },
     "web_search": {
-        "note": "需要 Anthropic 协议、支持自带搜索（web_search）的接口，比如 DeepSeek、Anthropic 官方。"
-                "聊天模型用哪家都可以，和这里无关。注意：网关装在设备上时，127.0.0.1 指设备自己。",
+        "note": "单独请求 DeepSeek 官方搜索接口 https://api.deepseek.com/v1/tools/search ，"
+                "不会放进主对话的 tools。优先用当前选定的 DeepSeek 大模型的 API Key；"
+                "这里的 Key 只在那个模型不是 DeepSeek 或没填 Key 时使用。"
+                "有结果的成功请求按次计费。网页内容只当不可信资料。",
         "fields": [
-            {"key": "base_url", "label": "接口地址", "type": "text", "default": "https://api.deepseek.com/anthropic/v1",
-             "hint": "写到 /anthropic 或 /anthropic/v1 都可以；Anthropic 官方填 https://api.anthropic.com"},
-            {"key": "api_key", "label": "API Key", "type": "secret", "required": True},
-            {"key": "model", "label": "模型", "type": "text", "default": "deepseek-v4-flash",
-             "hint": "用来搜索和总结的模型，比如 deepseek-v4-flash、claude-haiku-5-5"},
-            {"key": "max_uses", "label": "单次最多搜索次数", "type": "number", "default": 5, "min": 1, "max": 10,
-             "hint": "一个问题里模型最多搜几轮；越多越全，也越慢"},
+            {"key": "api_key", "label": "备用 API Key", "type": "secret",
+             "hint": "留空就用选定的 DeepSeek 大模型的 Key"},
+            {"key": "count", "label": "结果条数", "type": "number", "default": 5, "min": 1, "max": 10,
+             "hint": "1 到 10。接口最多允许 50，语音只取少量"},
         ],
-        # 旧版联网搜索（秘塔、Tavily、Serply）的字段：那时的 Key 不能发给新接口
+        # 旧版联网搜索（秘塔、Tavily、Serply）的字段：那时的 Key 不能发给 DeepSeek
         "legacy_keys": ["provider", "max_results"],
-        "legacy_note": "配置里还留着旧版联网搜索（秘塔、Tavily、Serply）的设置，那时填的 Key 不能用在新接口上，"
-                       "新版不会使用它。请重新填写 API Key 并保存，旧设置会一起清掉。",
+        "legacy_note": "配置里还留着旧版联网搜索（秘塔、Tavily、Serply）的设置，那时填的 Key 不能用在 DeepSeek 搜索上，"
+                       "不会发出去。选定 DeepSeek 大模型并填好它的 Key 即可；保存时会清掉旧设置。",
     },
 }
 INTENT_MODES = ("nointent", "function_call")
